@@ -1,17 +1,18 @@
 pipeline {
   agent any
   stages {
+    stage('Checkout') {
+      steps { checkout scm }
+    }
     stage('Docker Build & Push') {
       steps {
         withCredentials([usernamePassword(credentialsId: 'dockerhub', usernameVariable: 'DU', passwordVariable: 'DP')]) {
-          // Login to Docker Hub
-          sh 'docker login -u "$DU" -p "$DP"'
+          // Secure login
+          sh 'echo "$DP" | docker login -u "$DU" --password-stdin'
 
-          // Build Docker image from Dockerfile in repo
-          sh 'docker build -t <dockerhub-username>/learngit:latest .'
-
-          // Push the image to Docker Hub
-          sh 'docker push <dockerhub-username>/learngit:latest'
+          // Build & push to your Docker Hub repo
+          sh 'docker build -t dockerdavid007/glitch:latest .'
+          sh 'docker push dockerdavid007/glitch:latest'
         }
       }
     }
