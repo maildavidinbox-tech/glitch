@@ -1,4 +1,4 @@
-mkdir scripts
-echo '#!/bin/bash' > scripts/start.sh
-echo 'echo "Starting application..."' >> scripts/start.sh
-chmod +x scripts/start.sh
+#!/bin/bash
+set -euo pipefail
+cd /home/ubuntu/app
+nohup python3 -m http.server 8080 > server.log 2>&1 &
