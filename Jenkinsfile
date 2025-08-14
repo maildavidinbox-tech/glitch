@@ -111,27 +111,45 @@
 pipeline {
   agent any
   environment {
-    AWS_DEFAULT_REGION = 'us-east-2b'      // match your REGION
-    S3_BUCKET         = 'david-codedeploy-artifacts'
-    CD_APP            = 'MyWebApp'
-    CD_DG             = 'MyWebApp-DeploymentGroup'
+    AWS_DEFAULT_REGION = 'us-east-2'
+    S3_BUCKET          = 'david-codedeploy-artifacts'
+    CD_APP             = 'MyWebApp'
+    CD_DG              = 'MyWebApp-DeploymentGroup'
+    // Make sure Jenkins sees aws even if PATH is weird
+    PATH = "/usr/local/bin:/usr/bin:/bin:/usr/local/aws-cli/v2/current/bin:${env.PATH}"
   }
   stages {
-    stage('Checkout') { steps { checkout scm } }
-    stage('Package & Upload') {
+    stage('Prereqs') {
       steps {
-        sh 'which zip || (sudo apt-get update -y && sudo apt-get install -y zip) || true'
-        sh 'zip -r app.zip * -x "*.git*"'
-        sh 'aws s3 cp app.zip s3://$S3_BUCKET/app.zip'
+        sh '''
+          set -e
+          echo "PATH=$PATH"
+          which aws || { echo "ERROR: AWS CLI missing from PATH"; exit 127; }
+          aws --version
+          aws sts get-caller-identity >/dev/null
+        '''
       }
     }
+
+    stage('Checkout') { steps { checkout scm } }
+
+    stage('Package & Upload') {
+      steps {
+        sh '''
+          zip -r app.zip . -x "*.git*" "app.zip"
+          aws s3 cp app.zip s3://$S3_BUCKET/app.zip --region $AWS_DEFAULT_REGION
+        '''
+      }
+    }
+
     stage('Deploy') {
       steps {
         sh '''
           aws deploy create-deployment \
-          --application-name $CD_APP \
-          --deployment-group-name $CD_DG \
-          --s3-location bucket=$S3_BUCKET,bundleType=zip,key=app.zip
+            --application-name $CD_APP \
+            --deployment-group-name $CD_DG \
+            --s3-location bucket=$S3_BUCKET,bundleType=zip,key=app.zip \
+            --region $AWS_DEFAULT_REGION
         '''
       }
     }
